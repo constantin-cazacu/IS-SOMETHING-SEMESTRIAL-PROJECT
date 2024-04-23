@@ -6,7 +6,6 @@ from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 import httpx
-import base64
 import uuid
 from datetime import datetime
 
@@ -17,7 +16,7 @@ load_dotenv()
 app = FastAPI()
 
 # SQLAlchemy setup
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = os.environ.get('MSG_DATABASE_URL')
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -91,23 +90,37 @@ async def get_messages(conversation_id: str):
         db.close()
 
 
-# async def make_http_request():
-#     async with httpx.AsyncClient() as client:
-#         payload = {"service_name": "photo_service"}  # Add service_name field with a value
-#         response = await client.post('http://127.0.0.1:8000/register', json=payload)
-#
-#         if response.status_code != 200:
-#             raise HTTPException(status_code=500,
-#                                 detail=f"Failed to make HTTP request, status code: {response.status_code}")
-#
-#         print("successfully registered")
-#
-#
-# @app.on_event("startup")
-# async def startup_event():
-#     await make_http_request()
+async def make_http_request():
+    async with httpx.AsyncClient() as client:
+        payload = {"service_name": "message_service"}  # Add service_name field with a value
+        response = await client.post('http://127.0.0.1:8000/register', json=payload)
+
+        if response.status_code != 200:
+            raise HTTPException(status_code=500,
+                                detail=f"Failed to make HTTP request, status code: {response.status_code}")
+
+        print("successfully registered")
+
+
+@app.on_event("startup")
+async def startup_event():
+    await make_http_request()
 
 
 if __name__ == "__main__":
     print("Starting Service...")
-    # uvicorn message_service:app --reload --host 127.0.0.1 --port 8053
+    # uvicorn message_service:app --reload --host 127.0.0.1 --port 8052
+
+# {
+#     response:
+#     {
+#         user name,
+#         count
+#         msgs:
+#         [
+#             timestp int,
+#             sender name
+#             content
+#         ]
+#     }
+# }
