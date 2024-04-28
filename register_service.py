@@ -37,6 +37,7 @@ async def get_service(data: GetService):
 
 @app.get("/get_service/{service_name}")
 async def get_service(service_name: str):
+    print(service_name)
     try:
         global photo, video, profanity, message, authentication
         if service_name == "photo_service" and photo:
@@ -46,7 +47,7 @@ async def get_service(service_name: str):
         if service_name == "profanity_service" and profanity:
             return {"address": str(os.environ.get('VIDEO_SERVICE_URL')), "is_active": True}
         if service_name == "auth_service" and authentication:
-            return {"address": str(os.environ.get('VIDEO_SERVICE_URL')), "is_active": True}
+            return {"address": str(os.environ.get('AUTH_SERVICE_URL')), "is_active": True}
         if service_name == "message_service" and message:
             return {"address": str(os.environ.get('MESSAGE_SERVICE_URL')), "is_active": True}
 
@@ -71,7 +72,7 @@ async def register_service(service_name: str):
             profanity = True
             return {"is_active": "True"}
         if service_name == "auth_service":
-            auth = True
+            authentication = True
             return {"is_active": "True"}
         if service_name == "message_service":
             message = True
