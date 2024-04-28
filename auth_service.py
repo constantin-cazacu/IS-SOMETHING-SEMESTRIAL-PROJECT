@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 import uuid
 import hashlib
+import httpx
 
 # Load environment variables from .env file
 load_dotenv()
@@ -23,6 +24,12 @@ Base = declarative_base()
 
 # Pydantic model for user registration
 class UserCreate(BaseModel):
+    username: str
+    password: str
+
+
+# Pydantic model for user login
+class UserLogin(BaseModel):
     username: str
     password: str
 
@@ -69,17 +76,39 @@ def create_user(db_session, user: UserCreate):
 
 
 # Function to get user data
-def get_user(db_session, user_id: int):
+def get_user(db_session, user_id: str):
     return db_session.query(User).filter(User.id == user_id).first()
 
 
+# Function to authenticate user
+def authenticate_user(db_session, username: str, password: str):
+    user = db_session.query(User).filter(User.username == username).first()
+    if not user or not verify_password(password, user.hashed_password):
+        return None
+    return user
+
+
 # API endpoint for user registration
-@app.post("/register/")
+@app.post("/register-user/")
 async def register(user: UserCreate):
     db = SessionLocal()
     try:
         db_user = create_user(db, user)
         return db_user
+    finally:
+        db.close()
+
+
+# API endpoint for user login and authentication
+@app.post("/login/")
+async def login(user: UserLogin):
+    db = SessionLocal()
+    try:
+        user = authenticate_user(db, user.username, user.password)
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        # Return user ID along with authentication response
+        return {"user_id": user.id}
     finally:
         db.close()
 
@@ -94,24 +123,22 @@ async def get_user_data(user_id: str):
     finally:
         db.close()
 
-# async def make_http_request():
-#     async with httpx.AsyncClient() as client:
-#         payload = {"service_name": "auth_service"}  # Add service_name field with a value
-#         response = await client.post('http://127.0.0.1:8000/register', json=payload)
-#
-#         if response.status_code != 200:
-#             raise HTTPException(status_code=500,
-#                                 detail=f"Failed to make HTTP request, status code: {response.status_code}")
-#
-#         print("successfully registered")
+
+async def make_http_request():
+    async with httpx.AsyncClient() as client:
+        payload = {"service_name": "auth_service"}  # Add service_name field with a value
+        response = await client.post(os.environ.get('GATEWAY_URL'), json=payload)
+
+        if response.status_code != 200:
+            raise HTTPException(status_code=500,
+                                detail=f"Failed to make HTTP request, status code: {response.status_code}")
+
+        print("successfully registered")
 
 
-
-# @app.on_event("startup")
-# async def startup_event():
-#     # await make_http_request()
-#     # Create tables in the database
-#     # Base.metadata.create_all(bind=engine)
+@app.on_event("startup")
+async def startup_event():
+    await make_http_request()
 
 
 if __name__ == "__main__":
