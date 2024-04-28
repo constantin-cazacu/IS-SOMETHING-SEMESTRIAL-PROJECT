@@ -3,6 +3,7 @@ import requests
 import base64
 from pydantic import BaseModel
 import time
+from typing import Optional
 
 app = FastAPI()
 
@@ -21,9 +22,10 @@ class ServiceRegister(BaseModel):
 
 
 class Message(BaseModel):
-    sender_id: int
-    recipient_id: int
+    user_id: str
+    participant_id: str
     content: str
+    conversation_id: Optional[str] = None
 
 
 class VideoUpload(BaseModel):
@@ -38,9 +40,42 @@ class PhotoUpload(BaseModel):
     publish_date: int
 
 
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+
 @app.post("/health")
 async def urmom():
     return "sss"
+
+
+@app.post("/register-user/")
+async def register_user(user: UserCreate):
+    response = requests.get(f"{REGISTER_SERVICE_URL}/get_service/auth_service")
+    response_payload = response.json()
+    print(response_payload)
+    if response_payload["is_active"]:
+        # print("service is registered")
+        try:
+            payload = {
+                'username': user.username,
+                'password': user.password,
+            }
+
+            response = requests.post(f'{response_payload["address"]}/register-user/', json=payload)
+
+            if response.status_code == 200:
+                return {"message": "User registered successfully"}
+            elif response.status_code == 400:
+                return {"message": "User already registered"}
+            else:
+                raise HTTPException(status_code=500, detail="Failed to register user")
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        raise HTTPException(status_code=404, detail="Service not found")
 
 
 @app.post("/register")
@@ -99,9 +134,10 @@ async def send_message(data: Message):
         # print("service is registered")
         try:
             payload = {
-                'sender_id': data.sender_id,
-                'recipient_id': data.recipient_id,
+                'user_id': data.user_id,
+                'participant_id': data.participant_id,
                 'content': data.content,
+                'conversation_id': data.conversation_id
             }
 
             response = requests.post(f'{response_payload["address"]}/send-message/', json=payload)
@@ -115,6 +151,28 @@ async def send_message(data: Message):
             raise HTTPException(status_code=500, detail=str(e))
     else:
         raise HTTPException(status_code=404, detail="Service not found")
+
+
+@app.get("/get-messages/{conversation_id}")
+async def get_message(conversation_id: str):
+    response = requests.get(f"{REGISTER_SERVICE_URL}/get_service/message_service")
+    response_payload = response.json()
+    print(response_payload)
+    if response_payload["is_active"]:
+        # print("service is registered")
+        try:
+            response = requests.get(f'{response_payload["address"]}/get-messages/{conversation_id}')
+
+            if response.status_code == 200:
+                return {"message": "Message received successfully"}
+            else:
+                raise HTTPException(status_code=500, detail="Failed to get message")
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        raise HTTPException(status_code=404, detail="Service not found")
+
 
 @app.post("/upload-photo/")
 async def upload_photo(data: PhotoUpload):
