@@ -7,7 +7,7 @@ python-dotenv==1.0.1
 passlib==1.7.4
 requests==2.31.0
 pydantic==1.10.15
-
+click==8.1.7
 
 
 
