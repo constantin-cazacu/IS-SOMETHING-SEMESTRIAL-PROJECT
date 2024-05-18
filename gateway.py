@@ -45,6 +45,11 @@ class UserCreate(BaseModel):
     password: str
 
 
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
 @app.post("/health")
 async def urmom():
     return "sss"
@@ -71,6 +76,35 @@ async def register_user(user: UserCreate):
                 return {"message": "User already registered"}
             else:
                 raise HTTPException(status_code=500, detail="Failed to register user")
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        raise HTTPException(status_code=404, detail="Service not found")
+
+
+@app.post("/login/")
+async def login_user(user: UserLogin):
+    response = requests.get(f"{REGISTER_SERVICE_URL}/get_service/auth_service")
+    response_payload = response.json()
+    print(response_payload)
+    if response_payload["is_active"]:
+        # print("service is registered")
+        try:
+            payload = {
+                'username': user.username,
+                'password': user.password,
+            }
+
+            response = requests.post(f'{response_payload["address"]}/login/', json=payload)
+
+            if response.status_code == 200:
+                response_data = response.json()
+                user_id = response_data.get('user_id')
+                return {"message": "Login successful",
+                        "user_id": user_id}
+            else:
+                raise HTTPException(status_code=500, detail="Login Failed")
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
