@@ -187,6 +187,28 @@ async def send_message(data: Message):
         raise HTTPException(status_code=404, detail="Service not found")
 
 
+@app.get("/conversations/{user_id}")
+async def get_message(user_id: str):
+    response = requests.get(f"{REGISTER_SERVICE_URL}/get_service/message_service")
+    response_payload = response.json()
+    print(response_payload)
+    if response_payload["is_active"]:
+        # print("service is registered")
+        try:
+            response = requests.get(f'{response_payload["address"]}/conversations/{user_id}')
+
+            if response.status_code == 200:
+                conversations = response.json()
+                return conversations
+            else:
+                raise HTTPException(status_code=500, detail="Failed to get conversations")
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        raise HTTPException(status_code=404, detail="Service not found")
+
+
 @app.get("/get-messages/{conversation_id}")
 async def get_message(conversation_id: str):
     response = requests.get(f"{REGISTER_SERVICE_URL}/get_service/message_service")
@@ -198,9 +220,10 @@ async def get_message(conversation_id: str):
             response = requests.get(f'{response_payload["address"]}/get-messages/{conversation_id}')
 
             if response.status_code == 200:
-                return {"message": "Message received successfully"}
+                messages = response.json()
+                return messages
             else:
-                raise HTTPException(status_code=500, detail="Failed to get message")
+                raise HTTPException(status_code=500, detail="Failed to get messages")
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
