@@ -64,7 +64,8 @@ Base.metadata.create_all(bind=engine)
 def create_message(db_session, message: Message):
     # Check if the conversation already exists between sender and recipient
     conversation = db_session.query(Conversation).filter(
-        (Conversation.user_id == message.user_id) & (Conversation.participant_id == message.participant_id)
+        ((Conversation.user_id == message.user_id) & (Conversation.participant_id == message.participant_id)) |
+        ((Conversation.user_id == message.participant_id) & (Conversation.participant_id == message.user_id))
     ).first()
 
     # If conversation exists, use its ID, otherwise create a new conversation
@@ -93,7 +94,8 @@ def create_message(db_session, message: Message):
 def create_conversation(db_session, user_id: str, participant_id: str):
     # Check if a conversation already exists between the provided user_id and participant_id
     existing_conversation = db_session.query(Conversation).filter(
-        (Conversation.user_id == user_id) & (Conversation.participant_id == participant_id)
+        ((Conversation.user_id == user_id) & (Conversation.participant_id == participant_id)) |
+        ((Conversation.user_id == participant_id) & (Conversation.participant_id == user_id))
     ).first()
     if existing_conversation:
         raise HTTPException(status_code=409, detail="Conversation already exists")
@@ -121,7 +123,7 @@ def get_messages_for_conversation(db_session, conversation_id: str):
 # Retrieve conversations for a user
 def get_conversations_for_user(db_session, user_id: str):
     conversations = db_session.query(Conversation).filter(
-        Conversation.user_id == user_id
+        (Conversation.user_id == user_id) | (Conversation.participant_id == user_id)
     ).all()
     return conversations
 
