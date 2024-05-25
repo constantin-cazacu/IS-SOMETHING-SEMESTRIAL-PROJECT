@@ -191,7 +191,7 @@ async def startup_event():
 
 if __name__ == "__main__":
     print("Starting Service...")
-    # uvicorn message_service:app --reload --host 127.0.0.1 --port 8052
+    # uvicorn message_service:app --reload --host 127.0.0.1 --port 8053
 
 # {
 #     response:
