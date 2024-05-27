@@ -18,6 +18,7 @@ app = FastAPI()
 
 # SQLAlchemy setup
 DATABASE_URL = os.environ.get('MESSAGE_DATABASE_URL')
+AUTH_SERVICE_URL = os.environ.get('AUTH_SERVICE_URL')
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -60,8 +61,17 @@ class Conversation(Base):
 Base.metadata.create_all(bind=engine)
 
 
+# Helper function to get username by ID from the auth service
+async def get_user_name(user_id: str):
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{AUTH_SERVICE_URL}/user/{user_id}")
+        if response.status_code == 200:
+            return response.json().get('username')
+        raise HTTPException(status_code=500, detail="Failed to fetch user name")
+
+
 # Create a new message
-def create_message(db_session, message: Message):
+async def create_message(db_session, message: Message):
     # Check if the conversation already exists between sender and recipient
     conversation = db_session.query(Conversation).filter(
         ((Conversation.user_id == message.user_id) & (Conversation.participant_id == message.participant_id)) |
@@ -72,7 +82,7 @@ def create_message(db_session, message: Message):
     if conversation:
         conversation_id = conversation.id
     else:
-        conversation = create_conversation(db_session, message.user_id, message.participant_id)
+        conversation = await create_conversation(db_session, message.user_id, message.participant_id)
         conversation_id = conversation.id
 
     # Create the message with the associated conversation ID
@@ -91,7 +101,7 @@ def create_message(db_session, message: Message):
 
 
 # Create a new conversation
-def create_conversation(db_session, user_id: str, participant_id: str):
+async def create_conversation(db_session, user_id: str, participant_id: str):
     # Check if a conversation already exists between the provided user_id and participant_id
     existing_conversation = db_session.query(Conversation).filter(
         ((Conversation.user_id == user_id) & (Conversation.participant_id == participant_id)) |
@@ -113,19 +123,37 @@ def create_conversation(db_session, user_id: str, participant_id: str):
 
 
 # Retrieve messages for a conversation
-def get_messages_for_conversation(db_session, conversation_id: str):
+async def get_messages_for_conversation(db_session, conversation_id: str):
     messages = db_session.query(MessageDB).filter(
         MessageDB.conversation_id == conversation_id
     ).all()
-    return messages
+    # return messages
+    messages_with_names = []
+    for message in messages:
+        sender_name = await get_user_name(message.user_id)
+        messages_with_names.append({
+            "timestamp": int(message.timestamp.timestamp()),
+            "sender_name": sender_name,
+            "content": message.content
+        })
+    return messages_with_names
 
 
 # Retrieve conversations for a user
-def get_conversations_for_user(db_session, user_id: str):
+async def get_conversations_for_user(db_session, user_id: str):
     conversations = db_session.query(Conversation).filter(
         (Conversation.user_id == user_id) | (Conversation.participant_id == user_id)
     ).all()
-    return conversations
+    # return conversations
+    conversations_with_names = []
+    for conversation in conversations:
+        participant_id = conversation.participant_id if conversation.user_id == user_id else conversation.user_id
+        participant_name = await get_user_name(participant_id)
+        conversations_with_names.append({
+            "conversation_id": conversation.id,
+            "participant_name": participant_name
+        })
+    return conversations_with_names
 
 
 # API endpoint to send a message
@@ -133,7 +161,7 @@ def get_conversations_for_user(db_session, user_id: str):
 async def send_message(message: Message):
     db = SessionLocal()
     try:
-        db_message = create_message(db, message)
+        db_message = await create_message(db, message)
         return db_message
     finally:
         db.close()
@@ -144,7 +172,7 @@ async def send_message(message: Message):
 async def get_messages(conversation_id: str):
     db = SessionLocal()
     try:
-        messages = get_messages_for_conversation(db, conversation_id)
+        messages = await get_messages_for_conversation(db, conversation_id)
         return messages
     finally:
         db.close()
@@ -155,7 +183,7 @@ async def get_messages(conversation_id: str):
 async def list_conversations(user_id: str):
     db = SessionLocal()
     try:
-        conversations = get_conversations_for_user(db, user_id)
+        conversations = await get_conversations_for_user(db, user_id)
         return conversations
     finally:
         db.close()
@@ -166,7 +194,7 @@ async def list_conversations(user_id: str):
 async def create_conversation_endpoint(conversation: ConversationCreate):
     db = SessionLocal()
     try:
-        db_conversation = create_conversation(db, conversation.user_id, conversation.participant_id)
+        db_conversation = await create_conversation(db, conversation.user_id, conversation.participant_id)
         return db_conversation
     finally:
         db.close()
