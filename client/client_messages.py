@@ -54,7 +54,7 @@ def list_conversations():
         conversations = response.json()
         click.echo("Conversations:")
         for conversation in conversations:
-            click.echo(f"- {conversation['id']}: {conversation['participant_id']}")
+            click.echo(f"- {conversation['conversation_id']}: {conversation['participant_name']}")
     else:
         click.echo(f"Failed to retrieve conversations: {response.text}")
 
@@ -72,7 +72,7 @@ def list_messages(conversation_id):
         # print(messages)
         click.echo("Messages:")
         for message in messages:
-            click.echo(f"- {message['timestamp']}: {message['content']}")
+            click.echo(f"- {message['timestamp']} | {message['sender_name']}: {message['content']}")
     else:
         click.echo(f"Failed to retrieve messages: {response.text}")
 
